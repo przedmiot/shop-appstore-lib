@@ -1,5 +1,5 @@
 {
-    "name": "dreamcommerce/shop-appstore-lib",
+    "name": "itl/dreamcommerce-shop-appstore-lib",
     "description": "SDK for Dreamcommerce based shops REST-API",
     "license": "MIT",
     "require": {
