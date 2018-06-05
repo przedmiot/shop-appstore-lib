@@ -35,8 +35,11 @@ class Client
      */
     public $adapter;
 
-    public function __construct(ClientInterface $clientAdapter, string $queriesLogRootDir = null)
-    {
+    public function __construct(
+        ClientInterface $clientAdapter,
+        string $queriesLogRootDir = null,
+        \Psr\Log\LoggerInterface $psr3Logger = null
+    ) {
         if (!$clientAdapter->getHttpClient()) {
             $clientAdapter->setHttpClient(new \DreamCommerce\ShopAppstoreLib\Itl\Http);
         }
@@ -47,6 +50,9 @@ class Client
             }
             $httpClient->setHTTPTransport(new \Itl\Utils\HTTP\Curl());
             $httpClient->setQueryLogger(Querieslog::factory());
+            if ($psr3Logger) {
+                $httpClient->setLogger($psr3Logger);
+            }
         }
 
         $this->adapter = $clientAdapter;
@@ -58,7 +64,8 @@ class Client
         return call_user_func_array([$this->adapter, $name], $arguments);
     }
 
-    public function __get($name) {
+    public function __get($name)
+    {
         return $this->resource($name);
     }
 
@@ -87,6 +94,11 @@ class Client
     public function authenticate($authCode)
     {
         return $this->adapter->setAuthCode($authCode)->authenticate();
+    }
+
+    public function refreshTokens($refreshToken)
+    {
+        return $this->adapter->setRefreshToken($refreshToken)->refreshTokens();
     }
 
 }

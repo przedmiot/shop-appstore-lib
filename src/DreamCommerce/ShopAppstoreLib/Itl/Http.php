@@ -57,6 +57,9 @@ class Http implements HttpInterface, HTTPTransportAwareInterface
     public function setLogger(LoggerInterface $logger)
     {
         $this->logger = $logger;
+        if ($this->transport && $this->transport instanceof LoggerAwareInterface) {
+            $this->transport->setLogger($this->logger);
+        }
     }
 
     /**
