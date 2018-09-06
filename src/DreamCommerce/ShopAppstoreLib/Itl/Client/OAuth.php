@@ -1,12 +1,17 @@
 <?php
 namespace DreamCommerce\ShopAppstoreLib\Itl\Client;
 
+  use DreamCommerce\ShopAppstoreLib\Itl\Client;
+  use DreamCommerce\ShopAppstoreLib\Itl\ClientInterface;
   use DreamCommerce\ShopAppstoreLib\Itl\Http;
   use DreamCommerce\ShopAppstoreLib\HttpInterface;
   use DreamCommerce\ShopAppstoreLib\Client\Exception\OAuthException;
 
-  class OAuth extends \DreamCommerce\ShopAppstoreLib\Client\OAuth
+  class OAuth extends \DreamCommerce\ShopAppstoreLib\Client\OAuth implements ClientInterface
   {
+
+     protected $client;
+
 
     /**
      * {@inheritdoc}
@@ -32,6 +37,16 @@ namespace DreamCommerce\ShopAppstoreLib\Itl\Client;
 
           return $this->httpClient;
       }
+
+      public function setClient($client)
+      {
+          $this -> client = $client;
+      }
+
+      public function getClient() {
+          return $this->client;
+      }
+
 
       /**
        * Overwritten becouse org library doesn't check if $res['data'] is an array
@@ -70,4 +85,8 @@ namespace DreamCommerce\ShopAppstoreLib\Itl\Client;
 
           return $res['data'];
       }
+
+
+
+
   }
