@@ -2,8 +2,10 @@
 
 namespace DreamCommerce\ShopAppstoreLib\Itl;
 
+use DreamCommerce\ShopAppstoreLib\Exception\Exception;
 use DreamCommerce\ShopAppstoreLib\Resource;
 use DreamCommerce\ShopAppstoreLib\Resource\ProductStock;
+use Itl\Utils\Misc\BC;
 
 /**
  * Class Client
@@ -44,6 +46,10 @@ class Client
     protected $productsCache;
 
     protected $stocksNamesCache;
+
+    protected $currenciesCache;
+
+    protected $defaultCurrCache;
 
     public function __construct(
         ClientInterface $clientAdapter,
@@ -98,6 +104,9 @@ class Client
 
     public static function getWholeList(Resource $resource, $list = [], $page = 1)
     {
+        if (100 <= $page) {
+            throw new Exception('It\'s escalating...!');
+        }
         $response = $resource->limit(50)->page($page)->get();
         if ($response->count) {
             foreach ($response as $row) {
@@ -105,7 +114,7 @@ class Client
             }
         }
         if ($response->page < $response->pages) {
-            return self::getWholeList($list, ++$page);
+            return self::getWholeList($resource, $list, ++$page);
         } else {
             return $list;
         }
@@ -247,6 +256,35 @@ class Client
             throw new \Exception('Method self::loadOptionNamesAndOptionValueNames() should be called before!');
         }
         return $this->optionValuesNamesCache[$lang][$ovalueId];
+    }
+
+    public function getPriceInCurr($price, $currencyAbbr) {
+        $this->loadCurrencies();
+
+        if ($currencyAbbr === $this->defaultCurrCache) {
+            return $price;
+        }
+
+        if (!isset($this->currenciesCache[$currencyAbbr])) {
+            throw new Exception('Unknown currency!');
+        }
+
+        else return BC::bcround(bcmul($price, $this->currenciesCache[$currencyAbbr], 3));
+    }
+
+    protected function loadCurrencies() {
+        if (is_null($this->currenciesCache)) {
+            $currencies = static::getWholeList($this->resource('Currency'));
+            $this->currenciesCache = [];
+            foreach ($currencies as $currency) {
+                if ($currency->default) {
+                    $this->defaultCurrCache = $currency->name;
+                }
+                else {
+                    $this->currenciesCache[$currency->name] = $currency->rate;
+                }
+            }
+        }
     }
 
 }
