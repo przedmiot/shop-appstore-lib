@@ -5,8 +5,8 @@ namespace DreamCommerce\ShopAppstoreLib\Itl\Traits;
 use DreamCommerce\ShopAppstoreLib\Itl\Client;
 
 trait WholeList {
-    public function getWholeList()
+    public function getWholeList($grabRowCallback = null)
     {
-        return Client::getWholeList($this);
+        return Client::getWholeList($this, $grabRowCallback);
     }
 }

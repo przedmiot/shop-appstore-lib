@@ -267,7 +267,7 @@ class Http implements HttpInterface, HTTPTransportAwareInterface
                     if (isset($result['error_description'])) {
                         $description = $result['error_description'];
                     }
-                    throw new HttpException($description, HttpException::REQUEST_FAILED, null, $responseHeaders,
+                    throw new HttpException($description, $responseCode, null, $responseHeaders,
                         $result);
                 } else {
                     throw new \Exception(mb_strlen($result) > 256 ? mb_substr($result, 0, 256) . ' ...' : $result);

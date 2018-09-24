@@ -51,6 +51,13 @@ class Client
 
     protected $defaultCurrCache;
 
+    protected $shopDataCache;
+
+    const GET_WHOLE_LIST_PAGES_LIMIT = 1000;
+
+    const GET_WHOLE_LIST_ROWS_PER_PAGE = 50;
+
+
     public function __construct(
         ClientInterface $clientAdapter,
         string $queriesLogRootDir = null,
@@ -72,7 +79,7 @@ class Client
         }
 
         $this->adapter = $clientAdapter;
-        $clientAdapter -> setClient($this);
+        $clientAdapter->setClient($this);
     }
 
 
@@ -102,19 +109,24 @@ class Client
         return $this->adapter->setRefreshToken($refreshToken)->refreshTokens();
     }
 
-    public static function getWholeList(Resource $resource, $list = [], $page = 1)
+    public static function getWholeList(Resource $resource, $grabRowCallback = null, $list = [], $page = 1)
     {
-        if (100 <= $page) {
+        if (self::GET_WHOLE_LIST_PAGES_LIMIT <= $page) {
             throw new Exception('It\'s escalating...!');
         }
-        $response = $resource->limit(50)->page($page)->get();
+        $response = $resource->limit(self::GET_WHOLE_LIST_ROWS_PER_PAGE)->page($page)->get();
         if ($response->count) {
-            foreach ($response as $row) {
-                $list[] = $row;
+            foreach ($response as $i => $row) {
+                if (is_callable($grabRowCallback)) {
+                    list($index, $data)  = call_user_func($grabRowCallback, $row, ($page - 1) * self::GET_WHOLE_LIST_ROWS_PER_PAGE + $i);
+                    $list[$index] = $data;
+                } else {
+                    $list[] = $row;
+                }
             }
         }
         if ($response->page < $response->pages) {
-            return self::getWholeList($resource, $list, ++$page);
+            return self::getWholeList($resource, $grabRowCallback, $list, ++$page);
         } else {
             return $list;
         }
@@ -155,7 +167,8 @@ class Client
         return $shoperProductsArr ?: [];
     }
 
-    public function getProductForStock($stock) {
+    public function getProductForStock($stock)
+    {
         return $this->getProductsForStocks([$stock])[0];
     }
 
@@ -191,7 +204,7 @@ class Client
     {
         $lang = $lang ?: $this->locale;
 
-        $stockId = $stockOrStockId instanceof \ArrayObject ? $stockOrStockId -> stock_id : $stockOrStockId;
+        $stockId = $stockOrStockId instanceof \ArrayObject ? $stockOrStockId->stock_id : $stockOrStockId;
 
         if (!@$this->stocksNamesCache[$lang][$stockId]) {
             throw new \Exception('Method self::loadNamesForStocks() should be called before!');
@@ -258,7 +271,8 @@ class Client
         return $this->optionValuesNamesCache[$lang][$ovalueId];
     }
 
-    public function getPriceInCurr($price, $currencyAbbr) {
+    public function getPriceInCurr($price, $currencyAbbr)
+    {
         $this->loadCurrencies();
 
         if ($currencyAbbr === $this->defaultCurrCache) {
@@ -267,24 +281,37 @@ class Client
 
         if (!isset($this->currenciesCache[$currencyAbbr])) {
             throw new Exception('Unknown currency!');
+        } else {
+            return BC::bcround(bcmul($price, $this->currenciesCache[$currencyAbbr], 3));
         }
-
-        else return BC::bcround(bcmul($price, $this->currenciesCache[$currencyAbbr], 3));
     }
 
-    protected function loadCurrencies() {
+    public function getDefaultShopLocale() {
+        return $this->loadShopData()->default_language_name;
+    }
+
+    protected function loadCurrencies()
+    {
         if (is_null($this->currenciesCache)) {
             $currencies = static::getWholeList($this->resource('Currency'));
             $this->currenciesCache = [];
             foreach ($currencies as $currency) {
                 if ($currency->default) {
                     $this->defaultCurrCache = $currency->name;
-                }
-                else {
+                } else {
                     $this->currenciesCache[$currency->name] = $currency->rate;
                 }
             }
         }
+    }
+
+
+    protected function loadShopData() {
+        if (is_null($this->shopDataCache)) {
+            $this->shopDataCache = $this->ApplicationConfig->get();
+            $this->defaultCurrCache = $this->shopDataCache->default_currency_name;
+        }
+        return $this->shopDataCache;
     }
 
 }
