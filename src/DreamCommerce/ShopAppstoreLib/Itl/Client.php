@@ -13,7 +13,7 @@ use Itl\Utils\Misc\BC;
  *
  * Replaces original DreamCommerce\ShopAppstoreLib\Client class.
  * Injects a few default dependencies into \DreamCommerce\ShopAppstoreLib\Itl\Http (if used).
- * Love it or hate it (you muggle!) - restores a bit of magic known from previous versions of org library.
+ * restores a bit of magic
  *
  * Usage:
  * $client = new \DreamCommerce\ShopAppstoreLib\Itl\Client  (
@@ -88,6 +88,10 @@ class Client
         return call_user_func_array([$this->adapter, $name], $arguments);
     }
 
+    /**
+     * @param $name API`s Resource name
+     * @return Resource
+     */
     public function __get($name)
     {
         return $this->resource($name);
@@ -118,7 +122,8 @@ class Client
         if ($response->count) {
             foreach ($response as $i => $row) {
                 if (is_callable($grabRowCallback)) {
-                    list($index, $data)  = call_user_func($grabRowCallback, $row, ($page - 1) * self::GET_WHOLE_LIST_ROWS_PER_PAGE + $i);
+                    list($index, $data) = call_user_func($grabRowCallback, $row,
+                        ($page - 1) * self::GET_WHOLE_LIST_ROWS_PER_PAGE + $i);
                     $list[$index] = $data;
                 } else {
                     $list[] = $row;
@@ -271,7 +276,15 @@ class Client
         return $this->optionValuesNamesCache[$lang][$ovalueId];
     }
 
-    public function getPriceInCurr($price, $currencyAbbr)
+    /**
+     * @param $price string|float|int a price
+     * @param $currencyAbbr string a symbol of the currency the price should be exchanged for or a symbol of a source currency
+     * @param $toForeign bool is a price expressed in a default currency? If false - price is treated as expressed in foreign currency (system exchanges it for default currency)
+     * @return string price in default or $currencyAbbr currency - depends on $toForeign value
+     * @throws Exception
+     * @throws Resource\Exception\NotFoundException
+     */
+    public function getPriceInCurr($price, $currencyAbbr, $toForeign = true)
     {
         $this->loadCurrencies();
 
@@ -280,14 +293,77 @@ class Client
         }
 
         if (!isset($this->currenciesCache[$currencyAbbr])) {
-            throw new Exception('Unknown currency!');
-        } else {
+            throw new Resource\Exception\NotFoundException(__('Currency :curr is not defined in the shop!', [
+                'curr' => $currencyAbbr
+            ]));
+        }
+
+        if ($toForeign) {
             return BC::bcround(bcmul($price, $this->currenciesCache[$currencyAbbr], 3));
+        } else {
+            if (0 == $this->currenciesCache[$currencyAbbr]) {
+                throw new Exception('Exchange rate of :curr should be greater than 0', [
+                    'curr' => $currencyAbbr
+                ]);
+            }
+            return BC::bcround(bcdiv($price, $this->currenciesCache[$currencyAbbr], 3));
         }
     }
 
-    public function getDefaultShopLocale() {
+    public function getLocalizedNamesOfOrdersStatuses($lang = null) {
+        return $this->getLocalizedNamesOf('Status', ['active' => 1], $lang);
+    }
+
+    public function getLocalizedNamesOfShippings($lang = null) {
+        return $this->getLocalizedNamesOf('Shipping', [], $lang, true);
+    }
+
+    public function getLocalizedNamesOfPayments($lang = null) {
+        return $this->getLocalizedNamesOf('Payment', [], $lang, true);
+    }
+
+
+    /**
+     * @param $what string A resource name
+     * @param $filter arary
+     * @param $translationsCanBeDisabled is there turn-on-or-off-separate-translation strategy used?
+     *
+     * @return array names of resources indexed by their ids
+     */
+    protected function getLocalizedNamesOf($what, array $filters = [], $lang = null, $translationsCanBeDisabled = false) {
+        $lang = $lang ?: $this->locale;
+
+        $namesArr = [];
+        $resourcesArr = self::getWholeList($this->$what->filters($filters));
+        foreach ($resourcesArr as $resource) {
+            $id = $resource->{strtolower($what).'_id'};
+            if (@$resource->translations->$lang) {
+                if ($translationsCanBeDisabled && !$resource->translations->$lang->active) {
+                    continue;
+                }
+                if (@$resource->translations->$lang->name) {
+                    $namesArr[$id] = $resource->translations->$lang->name;
+                }
+                elseif (@$resource->translations->$lang->title) {
+                    $namesArr[$id] = $resource->translations->$lang->title;
+                }
+            }
+            else {
+                $namesArr[$id] = __('No translation');
+            }
+        }
+        return $namesArr;
+    }
+
+
+
+    public function getDefaultShopLocale()
+    {
         return $this->loadShopData()->default_language_name;
+    }
+
+    public function getShopTimezone() {
+        return $this->loadShopData()->locale_timezone;
     }
 
     protected function loadCurrencies()
@@ -306,7 +382,8 @@ class Client
     }
 
 
-    protected function loadShopData() {
+    protected function loadShopData()
+    {
         if (is_null($this->shopDataCache)) {
             $this->shopDataCache = $this->ApplicationConfig->get();
             $this->defaultCurrCache = $this->shopDataCache->default_currency_name;
