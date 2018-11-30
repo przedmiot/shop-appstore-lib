@@ -47,7 +47,9 @@ class Client
 
     protected $stocksNamesCache;
 
-    protected $currenciesCache;
+    protected $currenciesRatesCache;
+
+    protected $currenciesIdsCache;
 
     protected $defaultCurrCache;
 
@@ -276,52 +278,82 @@ class Client
         return $this->optionValuesNamesCache[$lang][$ovalueId];
     }
 
+
     /**
-     * @param $price string|float|int a price
-     * @param $currencyAbbr string a symbol of the currency the price should be exchanged for or a symbol of a source currency
-     * @param $toForeign bool is a price expressed in a default currency? If false - price is treated as expressed in foreign currency (system exchanges it for default currency)
-     * @return string price in default or $currencyAbbr currency - depends on $toForeign value
+     * Exchange office
+     *
+     * @param $price int|float|string quota we want to exchange
+     * @param null int|float|string $exchangeToCurrencyAbbr  currency we want to exchange to, null if it's default shop currency
+     * @param null int|float|string $priceCurrencyAbbr currency we want to exchange from, null if it's default shop currency
+     * @return string
      * @throws Exception
-     * @throws Resource\Exception\NotFoundException
      */
-    public function getPriceInCurr($price, $currencyAbbr, $toForeign = true)
+    public function getPriceInCurr($price, $exchangeToCurrencyAbbr = null, $priceCurrencyAbbr = null)
     {
         $this->loadCurrencies();
-
-        if ($currencyAbbr === $this->defaultCurrCache) {
-            return $price;
+        if (!$priceCurrencyAbbr) {
+            $priceCurrencyAbbr = $this->defaultCurrCache;
+        }
+        if (!$exchangeToCurrencyAbbr) {
+            $exchangeToCurrencyAbbr = $this->defaultCurrCache;
         }
 
-        if (!isset($this->currenciesCache[$currencyAbbr])) {
-            throw new Resource\Exception\NotFoundException(__('Currency :curr is not defined in the shop!', [
-                'curr' => $currencyAbbr
-            ]));
+        if ($priceCurrencyAbbr === $exchangeToCurrencyAbbr) {
+            return BC::bcround($price);
         }
 
-        if ($toForeign) {
-            return BC::bcround(bcmul($price, $this->currenciesCache[$currencyAbbr], 3));
+        if ($priceCurrencyAbbr === $this->defaultCurrCache) {
+            return $this->exchangeFromDefaultShopCurr($price, $exchangeToCurrencyAbbr);
         } else {
-            if (0 == $this->currenciesCache[$currencyAbbr]) {
-                throw new Exception('Exchange rate of :curr should be greater than 0', [
-                    'curr' => $currencyAbbr
-                ]);
+            if ($exchangeToCurrencyAbbr === $this->defaultCurrCache) {
+                return $this->exchangeToDafaultShopCurr($price, $priceCurrencyAbbr);
+            } else {
+                return $this->exchangeFromDefaultShopCurr($this->exchangeToDafaultShopCurr($price, $priceCurrencyAbbr), $exchangeToCurrencyAbbr);
             }
-            return BC::bcround(bcdiv($price, $this->currenciesCache[$currencyAbbr], 3));
         }
     }
 
-    public function getLocalizedNamesOfOrdersStatuses($lang = null) {
+    public function exchangeToDafaultShopCurr($price, $currAbbr)
+    {
+        $this->getCurrencyIdByAbbr($currAbbr);
+        return BC::bcround(bcmul($price, $this->currenciesRatesCache[$currAbbr], 3));
+    }
+
+    public function exchangeFromDefaultShopCurr($price, $currAbbr)
+    {
+        $this->getCurrencyIdByAbbr($currAbbr);
+        if (0 == $this->currenciesRatesCache[$currAbbr]) {
+            throw new Exception('Exchange rate of :curr should be greater than 0', [
+                'curr' => $currAbbr
+            ]);
+        }
+        return BC::bcround(bcdiv($price, $this->currenciesRatesCache[$currAbbr], 3));
+    }
+
+    public function getCurrencyIdByAbbr($currAbbr) {
+        $this->loadCurrencies();
+        if (!isset($this->currenciesIdsCache[$currAbbr])) {
+            throw new Resource\Exception\NotFoundException(__('Currency :curr is not defined in the shop!', [
+                'curr' => $currAbbr
+            ]));
+        }
+        return $this->currenciesIdsCache[$currAbbr];
+    }
+
+    public function getLocalizedNamesOfOrdersStatuses($lang = null)
+    {
         return $this->getLocalizedNamesOf('Status', ['active' => 1], $lang);
     }
 
-    public function getLocalizedNamesOfShippings($lang = null) {
+    public function getLocalizedNamesOfShippings($lang = null)
+    {
         return $this->getLocalizedNamesOf('Shipping', [], $lang, true);
     }
 
-    public function getLocalizedNamesOfPayments($lang = null) {
+    public function getLocalizedNamesOfPayments($lang = null)
+    {
         return $this->getLocalizedNamesOf('Payment', [], $lang, true);
     }
-
 
     /**
      * @param $what string A resource name
@@ -330,25 +362,24 @@ class Client
      *
      * @return array names of resources indexed by their ids
      */
-    protected function getLocalizedNamesOf($what, array $filters = [], $lang = null, $translationsCanBeDisabled = false) {
+    protected function getLocalizedNamesOf($what, array $filters = [], $lang = null, $translationsCanBeDisabled = false)
+    {
         $lang = $lang ?: $this->locale;
 
         $namesArr = [];
         $resourcesArr = self::getWholeList($this->$what->filters($filters));
         foreach ($resourcesArr as $resource) {
-            $id = $resource->{strtolower($what).'_id'};
+            $id = $resource->{strtolower($what) . '_id'};
             if (@$resource->translations->$lang) {
                 if ($translationsCanBeDisabled && !$resource->translations->$lang->active) {
                     continue;
                 }
                 if (@$resource->translations->$lang->name) {
                     $namesArr[$id] = $resource->translations->$lang->name;
-                }
-                elseif (@$resource->translations->$lang->title) {
+                } elseif (@$resource->translations->$lang->title) {
                     $namesArr[$id] = $resource->translations->$lang->title;
                 }
-            }
-            else {
+            } else {
                 $namesArr[$id] = __('No translation');
             }
         }
@@ -356,26 +387,27 @@ class Client
     }
 
 
-
     public function getDefaultShopLocale()
     {
         return $this->loadShopData()->default_language_name;
     }
 
-    public function getShopTimezone() {
+    public function getShopTimezone()
+    {
         return $this->loadShopData()->locale_timezone;
     }
 
     protected function loadCurrencies()
     {
-        if (is_null($this->currenciesCache)) {
+        if (is_null($this->defaultCurrCache)) {
             $currencies = static::getWholeList($this->resource('Currency'));
-            $this->currenciesCache = [];
+            $this->currenciesRatesCache = [];
             foreach ($currencies as $currency) {
+                $this->currenciesIdsCache[$currency->name] = $currency->currency_id;
                 if ($currency->default) {
                     $this->defaultCurrCache = $currency->name;
                 } else {
-                    $this->currenciesCache[$currency->name] = $currency->rate;
+                    $this->currenciesRatesCache[$currency->name] = $currency->rate;
                 }
             }
         }
