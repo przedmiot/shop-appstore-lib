@@ -3,6 +3,7 @@
 namespace DreamCommerce\ShopAppstoreLib\Itl;
 
 use DreamCommerce\ShopAppstoreLib\Exception\Exception;
+use DreamCommerce\ShopAppstoreLib\Itl\Exception\CurrencyNotFoundException;
 use DreamCommerce\ShopAppstoreLib\Resource;
 use DreamCommerce\ShopAppstoreLib\Resource\ProductStock;
 use Itl\Utils\Misc\BC;
@@ -330,10 +331,15 @@ class Client
         return BC::bcround(bcdiv($price, $this->currenciesRatesCache[$currAbbr], 3));
     }
 
+    /**
+     * @param $currAbbr
+     * @return integer
+     * @throws CurrencyNotFoundException
+     */
     public function getCurrencyIdByAbbr($currAbbr) {
         $this->loadCurrencies();
         if (!isset($this->currenciesIdsCache[$currAbbr])) {
-            throw new Resource\Exception\NotFoundException(__('Currency :curr is not defined in the shop!', [
+            throw new CurrencyNotFoundException(__('Currency :curr is not defined in the shop!', [
                 'curr' => $currAbbr
             ]));
         }
@@ -399,8 +405,8 @@ class Client
 
     protected function loadCurrencies()
     {
-        if (is_null($this->defaultCurrCache)) {
-            $currencies = static::getWholeList($this->resource('Currency'));
+        if (is_null($this->currenciesIdsCache)) {
+            $currencies = static::getWholeList($this->resource('Currency')->filters(['active' => 1]));
             $this->currenciesRatesCache = [];
             foreach ($currencies as $currency) {
                 $this->currenciesIdsCache[$currency->name] = $currency->currency_id;
