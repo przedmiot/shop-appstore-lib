@@ -309,7 +309,8 @@ class Client
             if ($exchangeToCurrencyAbbr === $this->defaultCurrCache) {
                 return $this->exchangeToDafaultShopCurr($price, $priceCurrencyAbbr);
             } else {
-                return $this->exchangeFromDefaultShopCurr($this->exchangeToDafaultShopCurr($price, $priceCurrencyAbbr), $exchangeToCurrencyAbbr);
+                return $this->exchangeFromDefaultShopCurr($this->exchangeToDafaultShopCurr($price, $priceCurrencyAbbr),
+                    $exchangeToCurrencyAbbr);
             }
         }
     }
@@ -336,7 +337,8 @@ class Client
      * @return integer
      * @throws CurrencyNotFoundException
      */
-    public function getCurrencyIdByAbbr($currAbbr) {
+    public function getCurrencyIdByAbbr($currAbbr)
+    {
         $this->loadCurrencies();
         if (!isset($this->currenciesIdsCache[$currAbbr])) {
             throw new CurrencyNotFoundException(__('Currency :curr is not defined in the shop!', [
@@ -363,7 +365,8 @@ class Client
 
     /**
      * @param $what string A resource name
-     * @param $filter arary
+     * @param $filter array
+     * @param $lang string|array (every language will be )
      * @param $translationsCanBeDisabled is there turn-on-or-off-separate-translation strategy used?
      *
      * @return array names of resources indexed by their ids
@@ -371,25 +374,43 @@ class Client
     protected function getLocalizedNamesOf($what, array $filters = [], $lang = null, $translationsCanBeDisabled = false)
     {
         $lang = $lang ?: $this->locale;
+        $langArr = (array)$lang;
 
         $namesArr = [];
         $resourcesArr = self::getWholeList($this->$what->filters($filters));
         foreach ($resourcesArr as $resource) {
             $id = $resource->{strtolower($what) . '_id'};
-            if (@$resource->translations->$lang) {
-                if ($translationsCanBeDisabled && !$resource->translations->$lang->active) {
+
+            $translation = $this->getTranslation(@$resource->translations, $langArr);
+            if ($translation) {
+                if ($translationsCanBeDisabled && !$translation->active) {
                     continue;
                 }
-                if (@$resource->translations->$lang->name) {
-                    $namesArr[$id] = $resource->translations->$lang->name;
-                } elseif (@$resource->translations->$lang->title) {
-                    $namesArr[$id] = $resource->translations->$lang->title;
+                if (@$translation->name) {
+                    $namesArr[$id] = $translation->name;
+                } elseif (@$translation->title) {
+                    $namesArr[$id] = $translation->title;
                 }
-            } else {
+            }
+            else {
                 $namesArr[$id] = __('No translation');
             }
         }
         return $namesArr;
+    }
+
+    protected function getTranslation($translationsArr, $lang = null)
+    {
+        $lang = $lang ?: $this->locale;
+        $lang = (array)$lang;
+
+        foreach ($lang as $desiredLang) {
+            foreach ($translationsArr as $translationLang => $transaltedArr) {
+                if ($desiredLang == $translationLang || substr($translationLang, 0, 2) == $desiredLang) {
+                    return $transaltedArr;
+                }
+            }
+        }
     }
 
 
