@@ -58,7 +58,7 @@ class Client
 
     const GET_WHOLE_LIST_PAGES_LIMIT = 1000;
 
-    const GET_WHOLE_LIST_ROWS_PER_PAGE = 50;
+    const GET_WHOLE_LIST_ROWS_PER_PAGE = 35;
 
 
     public function __construct(
