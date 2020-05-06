@@ -372,6 +372,10 @@ class Resource
      */
     protected function isCollection($args)
     {
+        if (!(is_array($args) || $args instanceof \Countable)) {
+            return false;
+        }
+
         return !$this->isSingleOnly && count($args)==0;
     }
 
