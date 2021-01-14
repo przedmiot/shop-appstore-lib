@@ -4,6 +4,7 @@ namespace DreamCommerce\ShopAppstoreLib;
 
 use DreamCommerce\ShopAppstoreLib\Client\Exception\Exception;
 use DreamCommerce\ShopAppstoreLib\Exception\HttpException;
+use DreamCommerce\ShopAppstoreLib\Resource\Bulk;
 use DreamCommerce\ShopAppstoreLib\Resource\Exception\CommunicationException;
 use DreamCommerce\ShopAppstoreLib\Resource\Exception\ObjectLockedException;
 use DreamCommerce\ShopAppstoreLib\Resource\Exception\MethodUnsupportedException;
@@ -69,6 +70,17 @@ class Resource
     protected static $resources = array();
 
     /**
+     * @var data to submit - for POSTs and PUTs
+     */
+    public $requestData;
+
+    /**
+     * @var Id of a resource - for GET, PUT, DELETE or HEAD requests
+     */
+    public $resourceId;
+
+
+    /**
      * @param ClientInterface $client
      */
     public function __construct(ClientInterface $client)
@@ -86,7 +98,7 @@ class Resource
     public static function factory(ClientInterface $client, $name, $forceRecreateResource = false)
     {
         $name = ucfirst($name);
-        if(!isset(self::$resources[$name]) || $forceRecreateResource) {
+        if (!isset(self::$resources[$name]) || $forceRecreateResource) {
 
             $class = "\\DreamCommerce\\ShopAppstoreLib\\Resource\\" . $name;
             if (class_exists($class)) {
@@ -111,51 +123,51 @@ class Resource
     /**
      * @param $response
      * @param bool $isCollection should transform response as a collection?
-     * @throws ResourceException
      * @return mixed
+     * @throws ResourceException
      */
     protected function transformResponse($response, $isCollection)
     {
         $code = null;
-        if(isset($response['headers']['Code'])) {
+        if (isset($response['headers']['Code'])) {
             $code = $response['headers']['Code'];
         }
 
         // everything is okay when 200-299 status code
-        if($code >= 200 && $code < 300){
+        if ($code >= 200 && $code < 300) {
             // for example, last insert ID
-            if($isCollection){
-                if(isset($response['data']['list'])) {
+            if ($isCollection) {
+                if (isset($response['data']['list'])) {
                     $objectList = new ResourceList($response['data']['list']);
                 } else {
                     $objectList = new ResourceList();
                 }
 
                 // add meta properties (eg. count, page, etc) as a ArrayObject properties
-                if(isset($response['data']['page'])) {
+                if (isset($response['data']['page'])) {
                     $objectList->setPage($response['data']['page']);
-                } elseif(isset($response['headers']['X-Shop-Result-Page'])) {
+                } elseif (isset($response['headers']['X-Shop-Result-Page'])) {
                     $objectList->setPage($response['headers']['X-Shop-Result-Page']);
                 }
 
-                if(isset($response['data']['count'])) {
+                if (isset($response['data']['count'])) {
                     $objectList->setCount($response['data']['count']);
-                } elseif(isset($response['headers']['X-Shop-Result-Count'])) {
+                } elseif (isset($response['headers']['X-Shop-Result-Count'])) {
                     $objectList->setCount($response['headers']['X-Shop-Result-Count']);
                 }
 
-                if(isset($response['data']['pages'])) {
+                if (isset($response['data']['pages'])) {
                     $objectList->setPageCount($response['data']['pages']);
-                } elseif(isset($response['headers']['X-Shop-Result-Pages'])) {
+                } elseif (isset($response['headers']['X-Shop-Result-Pages'])) {
                     $objectList->setPageCount($response['headers']['X-Shop-Result-Pages']);
                 }
 
                 return $objectList;
-            }else{
+            } else {
 
                 $result = $response['data'];
 
-                if(!is_scalar($response['data'])) {
+                if (!is_scalar($response['data'])) {
                     $result = new \ArrayObject(
                         ResourceList::transform($result)
                     );
@@ -164,11 +176,11 @@ class Resource
                 return $result;
             }
 
-        }else{
+        } else {
 
-            if(isset($response['data']['error'])){
+            if (isset($response['data']['error'])) {
                 $msg = $response['data']['error'];
-            }else{
+            } else {
                 $msg = $response;
             }
 
@@ -177,7 +189,7 @@ class Resource
     }
 
     /**
-     * reset filters object state
+     * reset object request
      */
     public function reset()
     {
@@ -185,6 +197,8 @@ class Resource
         $this->limit = null;
         $this->order = null;
         $this->page = null;
+        $this->resourceId = null;
+        $this->requestData = null;
 
         return $this;
     }
@@ -193,23 +207,23 @@ class Resource
      * get an array with specified criteria
      * @return array
      */
-    protected function getCriteria()
+    public function getCriteria()
     {
         $result = array();
 
-        if($this->filters){
+        if ($this->filters) {
             $result['filters'] = $this->filters;
         }
 
-        if($this->limit!==null){
+        if ($this->limit !== null) {
             $result['limit'] = $this->limit;
         }
 
-        if($this->order!==null){
+        if ($this->order !== null) {
             $result['order'] = $this->order;
         }
 
-        if($this->page!==null){
+        if ($this->page !== null) {
             $result['page'] = $this->page;
         }
 
@@ -224,7 +238,7 @@ class Resource
      */
     public function limit($count)
     {
-        if($count<1 || $count>50){
+        if ($count < 1 || $count > 50) {
             throw new \RuntimeException('Limit beyond 1-50 range', ResourceException::LIMIT_BEYOND_RANGE);
         }
 
@@ -241,7 +255,7 @@ class Resource
      */
     public function filters($filters)
     {
-        if(!is_array($filters)){
+        if (!is_array($filters)) {
             throw new \RuntimeException('Filters not specified', ResourceException::FILTERS_NOT_SPECIFIED);
         }
 
@@ -260,7 +274,7 @@ class Resource
     {
         $page = (int)$page;
 
-        if($page<0){
+        if ($page < 0) {
             throw new \RuntimeException('Invalid page specified', ResourceException::INVALID_PAGE);
         }
 
@@ -286,7 +300,7 @@ class Resource
 
         $result = array();
 
-        foreach($expr as $e) {
+        foreach ($expr as $e) {
             // basic syntax, with asc/desc suffix
             if (preg_match('/([a-z_0-9.]+) (asc|desc)$/i', $e)) {
                 $result[] = $e;
@@ -308,6 +322,7 @@ class Resource
 
         $this->order = $result;
 
+        return $this;
     }
 
     /**
@@ -317,27 +332,98 @@ class Resource
      * @return \ArrayObject
      * @throws ResourceException
      */
-    public function get()
+    public function get($id = null)
     {
-        $query = $this->getCriteria();
-
-        $args = func_get_args();
-        if(empty($args)){
-            $args = null;
+        if ($id) {
+            $this->addResourceId($id);
         }
-
-        $isCollection = $this->isCollection($args);
 
         $response = '';
 
         try {
-            $response = $this->client->request($this, 'get', $args, array(), $query);
-        } catch(Exception $ex) {
+            $response = $this->client->request($this, 'get');
+        } catch (Exception $ex) {
             $this->dispatchException($ex);
         }
 
-        return $this->transformResponse($response, $isCollection);
+        return $this->transformResponse($response, $this->isCollection());
     }
+
+
+    /**
+     * Convetrs simple get to "bulk" get. Useful in case of large query string (i.e. many ids in filter)
+     *
+     * @return mixed
+     * @throws Exception
+     * @throws ResourceException
+     * @throws Resource\Exception\BulkException
+     */
+    public function getBulk($id = null)
+    {
+        $result = (new Bulk($this->client))->addResources($this->addResourceId($id))->post()[0];
+        if ($result instanceof Exception) {
+            throw $result;
+        }
+
+        return $result;
+    }
+
+
+    /**
+     *
+     *
+     * @param callable $ownIndexCallback
+     * @return array
+     * @throws ResourceException
+     * @throws Resource\Exception\BulkException
+     */
+    public function getWholeListBulk($ownIndexCallback = null)
+    {
+        $clone = clone $this->limit(ResourceList::MAX_ROWS_PER_PAGE);
+        $clone->resourceId = null;
+
+        //first - normal query
+        $response = $clone->page(1)->get();
+        $list = $response->list->getArrayCopy();
+
+        if (1 < $response->pages) {
+            $page = 2;
+            //second - bulk queries
+            $bulkOfResources = [];
+            while ($page <= $response->pages) {
+                $clone = clone $clone;
+                $clone->page($page);
+                $bulkOfResources[] = $clone;
+                if (Bulk::RESOURCES_QUANTITY_LIMIT == count($bulkOfResources) || $page == $response->pages) {
+                    $bulkResult = (new Resource\Bulk($this->client))->addResources($bulkOfResources)->post();
+                    foreach ($bulkResult as $item) {
+                        if ($item instanceof \Exception) {
+                            throw $item;
+                        }
+                        $list = array_merge($list, $item->list->getArrayCopy());
+                    }
+                    $bulkOfResources = [];
+                }
+                $page++;
+            }
+        }
+
+        if ($ownIndexCallback) {
+            if (!is_callable($ownIndexCallback)) {
+                throw new ResourceException('Argument should be callable');
+            }
+
+            $list2 = [];
+            foreach ($list as $i => $row) {
+                list($index, $data) = call_user_func($ownIndexCallback, $row, $i);
+                $list2[$index] = $data;
+            }
+            $list = $list2;
+        }
+
+        return $list;
+    }
+
 
     /**
      * Read Resource without data
@@ -345,24 +431,25 @@ class Resource
      * @return \ArrayObject
      * @throws ResourceException
      */
-    public function head()
+    public function head($id = null)
     {
-        $query = $this->getCriteria();
+        if ($id) {
+            $this->addResourceId($id);
+        }
 
-        $args = func_get_args();
-        if(empty($args)){
-            $args = null;
+        if (!$this->resourceId) {
+            throw new ResourceException('I\'m not sure what should be checked... Give me an id.', ResourceException::UNSUFFICIENT_CALL_ARGUMENTS);
         }
 
         $response = '';
 
         try {
-            $response = $this->client->request($this, 'head', $args, array(), $query);
-        } catch(Exception $ex) {
+            $response = $this->client->request($this, 'head');
+        } catch (Exception $ex) {
             $this->dispatchException($ex);
         }
 
-        return $this->transformResponse($response, true);
+        return $this->transformResponse($response, false);
     }
 
     /**
@@ -370,9 +457,11 @@ class Resource
      * @param $args
      * @return bool
      */
-    protected function isCollection($args)
+    public function isCollection()
     {
-        return !$this->isSingleOnly && @count($args)==0;
+        if ($this->isSingleOnly || is_null($this->resourceId)) {
+            return false;
+        }
     }
 
     /**
@@ -381,24 +470,18 @@ class Resource
      * @return integer
      * @throws ResourceException
      */
-    public function post($data)
+    public function post($data = [])
     {
-        $args = func_get_args();
-        if(count($args) == 1) {
-            $args = null;
-        } else {
-            $data = array_pop($args);
+        if ($data) {
+            $this->addRequestData($data);
         }
-
         $response = '';
-
         try {
-            $response = $this->client->request($this, 'post', $args, $data);
+            $response = $this->client->request($this, 'post');
             return $response['data'];
         } catch (Exception $ex) {
             $this->dispatchException($ex);
         }
-
     }
 
     /**
@@ -410,17 +493,20 @@ class Resource
      */
     public function put($id = null, $data = array())
     {
+        if ($id) {
+            $this->addResourceId($id);
+        }
+        if ($data) {
+            $this->addRequestData($data);
+        }
 
-        $args = func_get_args();
-        if(count($args) == 2){
-            $args = $id;
-        }else{
-            $data = array_pop($args);
+        if (!$this->resourceId) {
+            throw new ResourceException('I\'m not sure what should be updated... Give me an id.', ResourceException::UNSUFFICIENT_CALL_ARGUMENTS);
         }
 
         try {
-            $this->client->request($this, 'put', $args, $data);
-        } catch(Exception $ex) {
+            $this->client->request($this, 'put');
+        } catch (Exception $ex) {
             $this->dispatchException($ex);
         }
 
@@ -433,38 +519,42 @@ class Resource
      * @return bool
      * @throws ResourceException
      */
-    public function delete($id = null)
+    public function delete($id)
     {
-        if($this->getCriteria()){
+        if ($this->getCriteria()) {
             throw new ResourceException('Filtering not supported in DELETE', ResourceException::FILTERS_IN_UNSUPPORTED_METHOD);
         }
 
-        $args = func_get_args();
-        if(count($args) == 1){
-            $args = $id;
+        if ($id) {
+            $this->addResourceId($id);
+        }
+
+        if (!$this->resourceId) {
+            throw new ResourceException('I\'m not sure what should be deleted... Give me an id.', ResourceException::UNSUFFICIENT_CALL_ARGUMENTS);
         }
 
         try {
-            $this->client->request($this, 'delete', $args);
-        }catch(Exception $ex){
+            $this->client->request($this, 'delete');
+        } catch (Exception $ex) {
             $this->dispatchException($ex);
         }
 
         return true;
     }
 
-    protected function dispatchException(Exception $ex){
+    protected function dispatchException(Exception $ex)
+    {
 
         /**
          * @var $httpException HttpException
          */
         $httpException = $ex->getPrevious();
 
-        if(!$httpException){
+        if (!$httpException) {
             throw $ex;
         }
 
-        switch($httpException->getCode()){
+        switch ($httpException->getCode()) {
             case 400:
                 throw new ValidationException($httpException->getResponse(), 0, $httpException);
             case 404:
@@ -481,7 +571,7 @@ class Resource
 
         $logger = $this->client->getLogger();
         // log error if no custom logger is configured
-        if($logger && $logger instanceof Logger){
+        if ($logger && $logger instanceof Logger) {
             $logger->error((string)$httpException, array((string)$httpException));
         }
 
@@ -489,4 +579,28 @@ class Resource
 
     }
 
+    /**
+     * for put or post
+     *
+     * @param $data
+     * @return $this
+     */
+
+    public function addRequestData($data)
+    {
+        $this->requestData = $data;
+        return $this;
+    }
+
+    /**
+     * For get, put or delete
+     *
+     * @param $id
+     * @return $this
+     */
+    public function addResourceId($id)
+    {
+        $this->resourceId = $id;
+        return $this;
+    }
 }

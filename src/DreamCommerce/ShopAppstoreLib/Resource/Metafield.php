@@ -32,6 +32,8 @@ class Metafield extends Resource
     protected $name = 'metafields';
 
     /**
+     * @todo tune it to changes connected with bulks support
+     *
      * Read Resource
      * @param mixed $args,... params
      * @return \ArrayObject

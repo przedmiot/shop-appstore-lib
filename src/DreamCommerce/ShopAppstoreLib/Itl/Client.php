@@ -6,6 +6,7 @@ use DreamCommerce\ShopAppstoreLib\Exception\Exception;
 use DreamCommerce\ShopAppstoreLib\Itl\Exception\CurrencyNotFoundException;
 use DreamCommerce\ShopAppstoreLib\Resource;
 use DreamCommerce\ShopAppstoreLib\Resource\ProductStock;
+use DreamCommerce\ShopAppstoreLib\ResourceList;
 use Itl\Utils\Misc\BC;
 
 /**
@@ -58,14 +59,12 @@ class Client
 
     const GET_WHOLE_LIST_PAGES_LIMIT = 1000;
 
-    const GET_WHOLE_LIST_ROWS_PER_PAGE = 50;
-
-
     public function __construct(
         ClientInterface $clientAdapter,
         string $queriesLogRootDir = null,
         \Psr\Log\LoggerInterface $psr3Logger = null
-    ) {
+    )
+    {
         if (!$clientAdapter->getHttpClient()) {
             $clientAdapter->setHttpClient(new \DreamCommerce\ShopAppstoreLib\Itl\Http);
         }
@@ -121,12 +120,12 @@ class Client
         if (self::GET_WHOLE_LIST_PAGES_LIMIT <= $page) {
             throw new Exception('It\'s escalating...!');
         }
-        $response = $resource->limit(self::GET_WHOLE_LIST_ROWS_PER_PAGE)->page($page)->get();
+        $response = $resource->limit(ResourceList::MAX_ROWS_PER_PAGE)->page($page)->get();
         if ($response->count) {
             foreach ($response as $i => $row) {
                 if (is_callable($grabRowCallback)) {
                     list($index, $data) = call_user_func($grabRowCallback, $row,
-                        ($page - 1) * self::GET_WHOLE_LIST_ROWS_PER_PAGE + $i);
+                        ($page - 1) * ResourceList::MAX_ROWS_PER_PAGE + $i);
                     $list[$index] = $data;
                 } else {
                     $list[] = $row;
@@ -139,6 +138,7 @@ class Client
             return $list;
         }
     }
+
 
     public function getProductsForStocks($stocks)
     {
@@ -341,9 +341,7 @@ class Client
     {
         $this->loadCurrencies();
         if (!isset($this->currenciesIdsCache[$currAbbr])) {
-            throw new CurrencyNotFoundException(__('Currency :curr is not defined in the shop!', [
-                'curr' => $currAbbr
-            ]));
+            throw new CurrencyNotFoundException($currAbbr);
         }
         return $this->currenciesIdsCache[$currAbbr];
     }
@@ -391,8 +389,7 @@ class Client
                 } elseif (@$translation->title) {
                     $namesArr[$id] = $translation->title;
                 }
-            }
-            else {
+            } else {
                 $namesArr[$id] = __('No translation');
             }
         }

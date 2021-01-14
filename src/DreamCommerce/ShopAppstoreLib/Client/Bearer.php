@@ -141,7 +141,7 @@ abstract class Bearer implements ClientInterface
     /**
      * {@inheritdoc}
      */
-    public function request(Resource $res, $method, $objectPath = null, $data = array(), $query = array())
+    public function request(Resource $res, $method)
     {
         $this->authenticate();
 
@@ -154,11 +154,9 @@ abstract class Bearer implements ClientInterface
         $client->setSkipSsl($this->skipSsl);
 
         $url = $this->entrypoint.'/'.$res->getName();
-        if($objectPath){
-            if(is_array($objectPath)){
-                $objectPath = join('/', $objectPath);
-            }
-            $url .= '/'.$objectPath;
+
+        if ($res->resourceId) {
+            $url .= '/'.$res->resourceId;
         }
 
         $headers = array(
@@ -169,6 +167,8 @@ abstract class Bearer implements ClientInterface
 
         $headers = $this->injectUserAgent($headers);
 
+        $query = $res->getCriteria();
+
         try {
             // dispatch correct method
             if(in_array($method, array('get', 'delete', 'head'))){
@@ -178,11 +178,9 @@ abstract class Bearer implements ClientInterface
             } else {
                 return call_user_func(array(
                     $client, $method
-                ), $url, $data, $query, $headers);
+                ), $url, $res->requestData, $query, $headers);
             }
-
         } catch(HttpException $ex) {
-
             // fire a handler for token reneval
             $previous = $ex->getPrevious();
             if($previous instanceof HttpException){

@@ -9,6 +9,8 @@ class ResourceList extends \ArrayObject
     public $page;
     public $pages = 0;
 
+    const MAX_ROWS_PER_PAGE = 50;
+
     public function setCount($count){
         $this->count = $count;
     }

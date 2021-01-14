@@ -43,4 +43,9 @@ class ResourceException extends Exception
      * invalid page number
      */
     const INVALID_PAGE = 7;
+
+    /**
+     * For example when dev wants to delete a resource and didn't specify its id
+     */
+    const UNSUFFICIENT_CALL_ARGUMENTS = 8;
 }

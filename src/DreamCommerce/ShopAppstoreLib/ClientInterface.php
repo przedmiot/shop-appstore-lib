@@ -30,13 +30,10 @@ interface ClientInterface
      *
      * @param Resource $res
      * @param string $method
-     * @param null|array|int $objectPath
-     * @param array $data
-     * @param array $query
      * @return array
      * @throws \DreamCommerce\ShopAppstoreLib\Client\Exception\Exception
      */
-    public function request(Resource $res, $method, $objectPath = null, $data = array(), $query = array());
+    public function request(Resource $res, $method);
 
     /**
      * @param HttpInterface $httpClient
