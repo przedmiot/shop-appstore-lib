@@ -368,11 +368,10 @@ class Resource
         return $result;
     }
 
-
     /**
+     * Returns all rows of a given resource using _bulk_ API method.
      *
-     *
-     * @param callable $ownIndexCallback
+     * @param callable $ownIndexCallback callback for returned list custom manipulations (will get: row data, org index; should return an array [index, data of the row])
      * @return array
      * @throws ResourceException
      * @throws Resource\Exception\BulkException
@@ -382,13 +381,13 @@ class Resource
         $clone = clone $this->limit(ResourceList::MAX_ROWS_PER_PAGE);
         $clone->resourceId = null;
 
-        //first - normal query
-        $response = $clone->page(1)->get();
+        //first page - we want to know how many pages are there
+        $response = $clone->page(1)->getBulk();
         $list = $response->list->getArrayCopy();
 
         if (1 < $response->pages) {
             $page = 2;
-            //second - bulk queries
+            //second and another pages
             $bulkOfResources = [];
             while ($page <= $response->pages) {
                 $clone = clone $clone;
