@@ -155,8 +155,8 @@ abstract class Bearer implements ClientInterface
 
         $url = $this->entrypoint.'/'.$res->getName();
 
-        if ($res->resourceId) {
-            $url .= '/'.$res->resourceId;
+        if ($path = $res->getResourceIdentifiers()) {
+            $url .= '/'.$path;
         }
 
         $headers = array(

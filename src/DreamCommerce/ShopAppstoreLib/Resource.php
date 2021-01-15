@@ -197,8 +197,8 @@ class Resource
         $this->limit = null;
         $this->order = null;
         $this->page = null;
-        $this->resourceId = null;
         $this->requestData = null;
+        $this->cleanIdentifiers();
 
         return $this;
     }
@@ -360,7 +360,11 @@ class Resource
      */
     public function getBulk($id = null)
     {
-        $result = (new Bulk($this->client))->addResources($this->addResourceId($id))->post()[0];
+        if ($id) {
+            $this->addResourceId($id);
+        }
+
+        $result = (new Bulk($this->client))->addResources($this)->post()[0];
         if ($result instanceof Exception) {
             throw $result;
         }
@@ -370,6 +374,7 @@ class Resource
 
     /**
      * Returns all rows of a given resource using _bulk_ API method.
+     * Faster and url-length-independent.
      *
      * @param callable $ownIndexCallback callback for returned list custom manipulations (will get: row data, org index; should return an array [index, data of the row])
      * @return array
@@ -383,7 +388,8 @@ class Resource
 
         //first page - we want to know how many pages are there
         $response = $clone->page(1)->getBulk();
-        $list = $response->list->getArrayCopy();
+
+        $list = $response->getArrayCopy();
 
         if (1 < $response->pages) {
             $page = 2;
@@ -399,7 +405,7 @@ class Resource
                         if ($item instanceof \Exception) {
                             throw $item;
                         }
-                        $list = array_merge($list, $item->list->getArrayCopy());
+                        $list = array_merge($list, $item->getArrayCopy());
                     }
                     $bulkOfResources = [];
                 }
@@ -458,9 +464,10 @@ class Resource
      */
     public function isCollection()
     {
-        if ($this->isSingleOnly || is_null($this->resourceId)) {
+        if ($this->isSingleOnly || !is_null($this->resourceId)) {
             return false;
         }
+        return true;
     }
 
     /**
@@ -601,5 +608,19 @@ class Resource
     {
         $this->resourceId = $id;
         return $this;
+    }
+
+
+    /**
+     * Is being called by Client for an url building purpose
+     *
+     * @return string
+     */
+    public function getResourceIdentifiers() {
+        return $this->resourceId;
+    }
+
+    public function resetIdentifiers() {
+        $this->resourceId = null;
     }
 }

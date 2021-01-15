@@ -47,8 +47,8 @@ class Bulk extends Resource implements \Countable
         foreach ($this->bulkOfResources as $i => $resource) {
             $path = self::API_PATH . $resource['resource']->getName();
 
-            if ($resource['resource']->resourceId) {
-                $path .= '/' . $resource['resource']->resourceId;
+            if ($identifiers = $resource['resource']->getResourceIdentifiers()) {
+                $path .= '/' . $identifiers;
             }
 
             $singleCall = [
@@ -81,8 +81,8 @@ class Bulk extends Resource implements \Countable
             $index = $item['id'] - 1;
 
             if ($item['code'] >= 400) {
-                $httpEx = new HttpException(@$item['body']['error_description'] ?: @$item['body']['error'], $item['code']);
-                $responses[$index] = new Exception('HTTP error: ' . $httpEx->getMessage(), Exception::API_ERROR, $httpEx);
+                $httpEx = new HttpException(@$item['body']['error_description'] ?:  @$item['body']['error'], $item['code']);
+                $responses[$index] = new Exception('HTTP error: '.$httpEx->getMessage(), Exception::API_ERROR, $httpEx);
                 continue;
             }
 

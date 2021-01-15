@@ -1,4 +1,5 @@
 <?php
+
 namespace DreamCommerce\ShopAppstoreLib\Resource;
 
 use DreamCommerce\ShopAppstoreLib\Resource;
@@ -31,32 +32,60 @@ class Metafield extends Resource
 
     protected $name = 'metafields';
 
-    /**
-     * @todo tune it to changes connected with bulks support
-     *
-     * Read Resource
-     * @param mixed $args,... params
-     * @return \ArrayObject
-     * @throws ResourceException
-     */
-    public function get()
+    public $objectName = 'system';
+
+    public function get($object = null, $id = null)
     {
-        $query = $this->getCriteria();
-
-        $args = func_get_args();
-        if(empty($args)){
-            $args = array("system");
+        if ($object) {
+            $this->setObjectName($object);
         }
 
-        $isCollection = !$this->isSingleOnly && count($args)==1;
-
-        try {
-            $response = $this->client->request($this, 'get', $args, array(), $query);
-        } catch(ClientException $ex) {
-            throw new Resource\Exception\CommunicationException($ex->getMessage(), $ex);
-        }
-
-        return $this->transformResponse($response, $isCollection);
+        return parent::get($id);
     }
-    
+
+    public function getBulk($object = null, $id = null)
+    {
+        if ($object) {
+            $this->setObjectName($object);
+        }
+
+        return parent::getBulk($id);
+    }
+
+    public function delete($id, $object = null)
+    {
+        if ($object) {
+            $this->setObjectName($object);
+        }
+
+        return parent::delete($id);
+    }
+
+
+    public function setObjectName($name)
+    {
+        $this->objectName = $name;
+        return $this;
+    }
+
+    public function getResourceIdentifiers()
+    {
+        return $this->objectName . ($this->resourceId ? '/' . $this->resourceId : '');
+    }
+
+    public function resetIdentifiers()
+    {
+        parent::resetIdentifiers();
+        $this->objectName = 'system';
+    }
+
+    public function addRequestData($data)
+    {
+        if (@$data['object']) {
+            $this->objectName = $data['object'];
+        }
+        return parent::addRequestData($data);
+    }
+
+
 }
