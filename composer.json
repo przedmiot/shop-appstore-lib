@@ -1,11 +1,11 @@
 {
-  "name": "Itl/dreamcommerce-shop-appstore-lib",
-  "description": "SDK for Dreamcommerce based shops REST-API",
+  "name": "itl/dreamcommerce-shop-appstore-lib",
+  "description": "SDK for Dreamcommerce based shops REST-API - ITL fork (bulks support, CURL instead streams, a few useful methods more)",
   "license": "MIT",
   "require": {
-    "php": ">=5.3.0",
+    "php": ">=5.6.0",
     "psr/log": "^1.0",
-    "Itl/Utils" : "dev-master"
+    "itl/utils" : "dev-master"
   },
   "repositories": [
     {
@@ -26,6 +26,10 @@
     {
       "name": "Michał Korus",
       "email": "michal.korus@dreamcommerce.com"
+    },
+    {
+      "name": "Wojciech Pacześniak",
+      "email": "w.paczesniak@intertele.pl"
     }
   ]
 }
