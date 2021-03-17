@@ -3,6 +3,7 @@
 namespace DreamCommerce\ShopAppstoreLib;
 
 use DreamCommerce\ShopAppstoreLib\Client\Exception\Exception;
+use Itl\ShoperAppStoreFoundation\Misc\ShopValve;
 
 /**
  * DreamCommerce requesting library
@@ -18,6 +19,11 @@ class Client
      * @var Client\OAuth
      */
     protected $adapter = null;
+
+    /**
+     * @var ShopValve|null
+     */
+    protected $shopValve = null;
 
     /**
      * @var ClientInterface
@@ -86,6 +92,15 @@ class Client
     public static function setDefaultAdapter(ClientInterface $adapter)
     {
         self::$defaultAdapter = $adapter;
+    }
+
+    /**
+     * A valve is an object responsible for disabling an integration in response of too many exceptions
+     *
+     * @param ShopValve $valve
+     */
+    public function setValve(ShopValve $valve) {
+        $this->adapter->setValve($valve);
     }
 
 }

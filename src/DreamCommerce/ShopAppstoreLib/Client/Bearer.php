@@ -9,6 +9,7 @@ use DreamCommerce\ShopAppstoreLib\Http;
 use DreamCommerce\ShopAppstoreLib\HttpInterface;
 use DreamCommerce\ShopAppstoreLib\Logger;
 use DreamCommerce\ShopAppstoreLib\Resource;
+use Itl\ShoperAppStoreFoundation\Misc\ShopValve;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -90,6 +91,11 @@ abstract class Bearer implements ClientInterface
     protected $userAgent = null;
 
     /**
+     * @var ShopValve
+     */
+    protected $shopValve;
+
+    /**
      * @param array $options
      * @throws \DreamCommerce\ShopAppstoreLib\Exception\Exception
      */
@@ -166,21 +172,30 @@ abstract class Bearer implements ClientInterface
         );
 
         $headers = $this->injectUserAgent($headers);
-
         $query = $res->getCriteria();
 
         try {
             // dispatch correct method
             if(in_array($method, array('get', 'delete', 'head'))){
-                return call_user_func(array(
+                $response = call_user_func(array(
                     $client, $method
                 ), $url, $query, $headers);
             } else {
-                return call_user_func(array(
+                $response = call_user_func(array(
                     $client, $method
                 ), $url, $res->requestData, $query, $headers);
             }
+
+            if ($this->shopValve) {
+                $this->shopValve->reset();
+            }
+
+            return $response;
         } catch(HttpException $ex) {
+            if ($this->shopValve) {
+                $this->shopValve->considerException($ex);
+            }
+
             // fire a handler for token reneval
             $previous = $ex->getPrevious();
             if($previous instanceof HttpException){
@@ -193,7 +208,6 @@ abstract class Bearer implements ClientInterface
                     }
                 }
             }
-
             throw new Exception('HTTP error: '.$ex->getMessage(), Exception::API_ERROR, $ex);
         }
     }
@@ -327,4 +341,11 @@ abstract class Bearer implements ClientInterface
 
         return $headers;
     }
+
+    public function setValve(ShopValve $valve)
+    {
+        $this->shopValve = $valve;
+    }
+
+
 }

@@ -2,6 +2,7 @@
 
 namespace DreamCommerce\ShopAppstoreLib;
 
+use Itl\ShoperAppStoreFoundation\Misc\ShopValve;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -74,4 +75,12 @@ interface ClientInterface
      * @return mixed
      */
     public function setOnTokenInvalidHandler($callback = null);
+
+
+    /**
+     * A valve is an object responsible for disabling an integration in response of too many exceptions
+     *
+     * @param ShopValve $valve
+     */
+    public function setValve(ShopValve $valve);
 }
