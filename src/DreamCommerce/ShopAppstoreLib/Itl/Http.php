@@ -160,7 +160,7 @@ class Http implements HttpInterface, HTTPTransportAwareInterface
         //Kolejne próby wykonania zapytania
         for ($i = 1; $i <= self::$retryLimit; $i++) {
             if (@static::$sleepOnNextQuery[$url]) {
-                sleep(2);
+                sleep($i + 1);
                 unset(static::$sleepOnNextQuery[$url]);
             }
 
