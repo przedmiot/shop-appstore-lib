@@ -47,6 +47,9 @@ namespace DreamCommerce\ShopAppstoreLib\Itl\Client;
           return $this->client;
       }
 
+      public function getEntrypoint() {
+          return $this->entrypoint;
+      }
 
       /**
        * Overwritten becouse org library doesn't check if $res['data'] is an array

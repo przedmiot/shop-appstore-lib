@@ -48,14 +48,13 @@ class Client
     protected $productsCache;
 
     protected $stocksNamesCache;
+    
+    /**
+     * @var \Illuminate\Cache\Repository
+     */
+    protected $cacheRepository;
 
-    protected $currenciesRatesCache;
-
-    protected $currenciesIdsCache;
-
-    protected $defaultCurrCache;
-
-    protected $shopDataCache;
+    protected $localCache = [];
 
     const GET_WHOLE_LIST_PAGES_LIMIT = 1000;
 
@@ -145,7 +144,6 @@ class Client
         if (!$stocks) {
             return [];
         }
-
 
         foreach ($stocks as $stock) {
             if (!@$this->productsCache[$stock->product_id]) {
@@ -292,21 +290,25 @@ class Client
     public function getPriceInCurr($price, $exchangeToCurrencyAbbr = null, $priceCurrencyAbbr = null)
     {
         $this->loadCurrencies();
+
+        $defaultCurrencyName = $this->getFromCache('defaultCurrencyName');
+
         if (!$priceCurrencyAbbr) {
-            $priceCurrencyAbbr = $this->defaultCurrCache;
+            $priceCurrencyAbbr = $defaultCurrencyName;
         }
+
         if (!$exchangeToCurrencyAbbr) {
-            $exchangeToCurrencyAbbr = $this->defaultCurrCache;
+            $exchangeToCurrencyAbbr = $defaultCurrencyName;
         }
 
         if ($priceCurrencyAbbr === $exchangeToCurrencyAbbr) {
             return BC::bcround($price);
         }
 
-        if ($priceCurrencyAbbr === $this->defaultCurrCache) {
+        if ($priceCurrencyAbbr === $defaultCurrencyName) {
             return $this->exchangeFromDefaultShopCurr($price, $exchangeToCurrencyAbbr);
         } else {
-            if ($exchangeToCurrencyAbbr === $this->defaultCurrCache) {
+            if ($exchangeToCurrencyAbbr === $defaultCurrencyName) {
                 return $this->exchangeToDafaultShopCurr($price, $priceCurrencyAbbr);
             } else {
                 return $this->exchangeFromDefaultShopCurr($this->exchangeToDafaultShopCurr($price, $priceCurrencyAbbr),
@@ -318,18 +320,21 @@ class Client
     public function exchangeToDafaultShopCurr($price, $currAbbr)
     {
         $this->getCurrencyIdByAbbr($currAbbr);
-        return BC::bcround(bcmul($price, $this->currenciesRatesCache[$currAbbr], 3));
+        return BC::bcround(bcmul($price, $this->getFromCache('currenciesRates')[$currAbbr], 3));
     }
 
     public function exchangeFromDefaultShopCurr($price, $currAbbr)
     {
         $this->getCurrencyIdByAbbr($currAbbr);
-        if (0 == $this->currenciesRatesCache[$currAbbr]) {
+
+        $rate = $this->getFromCache('currenciesRates')[$currAbbr];
+
+        if (0 == $rate) {
             throw new Exception('Exchange rate of :curr should be greater than 0', [
                 'curr' => $currAbbr
             ]);
         }
-        return BC::bcround(bcdiv($price, $this->currenciesRatesCache[$currAbbr], 3));
+        return BC::bcround(bcdiv($price, $rate, 3));
     }
 
     /**
@@ -340,10 +345,12 @@ class Client
     public function getCurrencyIdByAbbr($currAbbr)
     {
         $this->loadCurrencies();
-        if (!isset($this->currenciesIdsCache[$currAbbr])) {
+        $currenciesIdsCache = $this->getFromCache('currenciesIds');
+
+        if (!isset($currenciesIdsCache[$currAbbr])) {
             throw new CurrencyNotFoundException($currAbbr);
         }
-        return $this->currenciesIdsCache[$currAbbr];
+        return $currenciesIdsCache[$currAbbr];
     }
 
     public function getLocalizedNamesOfOrdersStatuses($lang = null)
@@ -423,28 +430,87 @@ class Client
 
     protected function loadCurrencies()
     {
-        if (is_null($this->currenciesIdsCache)) {
+        if (!$this->isCached('currenciesIds')) {
             $currencies = static::getWholeList($this->resource('Currency')->filters(['active' => 1]));
-            $this->currenciesRatesCache = [];
+            $currenciesIdsMap = $currenciesRates = [];
             foreach ($currencies as $currency) {
-                $this->currenciesIdsCache[$currency->name] = $currency->currency_id;
+                $currenciesIdsMap[$currency->name] = $currency->currency_id;
                 if ($currency->default) {
-                    $this->defaultCurrCache = $currency->name;
-                } else {
-                    $this->currenciesRatesCache[$currency->name] = $currency->rate;
+                    $this->cache('defaultCurrencyName', $currency->name, 60);
                 }
+                $currenciesRates[$currency->name] = $currency->rate;
+
             }
+            $this->cache('currenciesIds', $currenciesIdsMap, 60);
+            $this->cache('currenciesRates', $currenciesRates, 60);
         }
     }
 
-
     protected function loadShopData()
     {
-        if (is_null($this->shopDataCache)) {
-            $this->shopDataCache = $this->ApplicationConfig->get();
-            $this->defaultCurrCache = $this->shopDataCache->default_currency_name;
+        return $this->getFromCacheOrCacheReturned('ApplicationConfig', function () {
+            return $this->ApplicationConfig->get();
+        });
+    }
+
+    /**
+     * Adds cache repository (only Laravel cache supported - @param $repository
+     * @throws \DreamCommerce\ShopAppstoreLib\Client\Exception\Exception
+     * @todo write an adapter interface)
+     *
+     */
+    public function setLaravelCacheRepository($repository)
+    {
+        if (!$repository instanceof \Illuminate\Cache\Repository) {
+            throw new \DreamCommerce\ShopAppstoreLib\Client\Exception\Exception('Method works only with Laravel cache repository, so I\'m very very sorry!');
         }
-        return $this->shopDataCache;
+        $this->cacheRepository = $repository;
+    }
+
+    protected function cache($key, $value, $ttl = 600)
+    {
+        $this->localCache[$key] = $value;
+        if ($this->cacheRepository) {
+            $this->cacheRepository->put($this->prepareExternalCacheKey($key), $value, $ttl);
+        }
+        return $value;
+    }
+
+    protected function getFromCache($key, $default = null)
+    {
+        if (isset($this->localCache[$key])) {
+            logDump('getting from local cache');
+            return $this->localCache[$key];
+        } elseif ($this->cacheRepository->has($this->prepareExternalCacheKey($key))) {
+            logDump('getting from external cache');
+            return $this->cacheRepository->get($this->prepareExternalCacheKey($key));
+        } else {
+            return $default;
+        }
+    }
+
+    protected function isCached($key)
+    {
+        if (isset($this->localCache[$key])) {
+            return true;
+        } elseif ($this->cacheRepository->has($this->prepareExternalCacheKey($key))) {
+            return true;
+        }
+        return false;
+    }
+
+    protected function prepareExternalCacheKey($key)
+    {
+        return $this->adapter->getEntrypoint() . '__' . $key;
+    }
+
+    protected function getFromCacheOrCacheReturned(string $key, callable $callable, $ttl = 600)
+    {
+        if ($this->isCached($key)) {
+            return $this->getFromCache($key);
+        } else {
+            return $this->cache($key, call_user_func($callable), $ttl);
+        }
     }
 
 }

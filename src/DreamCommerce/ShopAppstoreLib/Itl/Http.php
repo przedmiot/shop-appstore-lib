@@ -23,7 +23,7 @@ class Http implements HttpInterface, HTTPTransportAwareInterface
 {
     const TIMEOUT = 15;
 
-    public static $retryLimit = 5;
+    public static $retryLimit = 6;
 
     public $transport;
 
@@ -157,11 +157,16 @@ class Http implements HttpInterface, HTTPTransportAwareInterface
         }
         //NAGŁÓWKI KONIEC
 
+        $retry = false;
         //Kolejne próby wykonania zapytania
         for ($i = 1; $i <= self::$retryLimit; $i++) {
-            if (@static::$sleepOnNextQuery[$url]) {
-                sleep($i * 2 + 1);
-                unset(static::$sleepOnNextQuery[$url]);
+            if (@static::$sleepOnNextQuery[$url] || $retry) {
+                if ($retryAfter = @$this->getResponseHeaders()['Retry-After']) {
+                    $baseSleepTime = $retryAfter;
+                } else {
+                    $baseSleepTime = 1;
+                }
+                sleep($baseSleepTime * $i * ($i <= 3 ? 1 : 2));
             }
 
             $url = $this->processUrl($this->url, $query);
@@ -213,6 +218,16 @@ class Http implements HttpInterface, HTTPTransportAwareInterface
         ];
     }
 
+    /**
+     * Performs a request using a transport object
+     *
+     * @param $method
+     * @param $url
+     * @param $body
+     * @param $headers
+     * @return bool - should a query be retried?
+     * @throws HttpException
+     */
     protected function query($method, $url, $body, $headers)
     {
         try {
@@ -232,8 +247,7 @@ class Http implements HttpInterface, HTTPTransportAwareInterface
                     ->responseStatus($this->transport->getResponseStatus());
             }
 
-            if (429 === $responseCode && isset($responseHeaders['Retry-After'])) {
-                sleep($responseHeaders['Retry-After']);
+            if (429 === $responseCode) {
                 return false;
             }
 
