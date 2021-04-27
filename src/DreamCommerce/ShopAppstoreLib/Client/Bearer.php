@@ -10,13 +10,14 @@ use DreamCommerce\ShopAppstoreLib\HttpInterface;
 use DreamCommerce\ShopAppstoreLib\Logger;
 use DreamCommerce\ShopAppstoreLib\Resource;
 use Itl\ShoperAppStoreFoundation\Misc\ShopValve;
+use Itl\ShoperAppStoreFoundation\Misc\ShopValveAware;
 use Psr\Log\LoggerInterface;
 
 /**
  * Class AbstractClient
  * @package DreamCommerce\ShopAppstoreLib\Client
  */
-abstract class Bearer implements ClientInterface
+abstract class Bearer implements ClientInterface, ShopValveAware
 {
     const HTTP_ERROR_INVALID_REQUEST = "invalid_request";
 

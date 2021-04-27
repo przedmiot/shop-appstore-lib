@@ -479,10 +479,8 @@ class Client
     protected function getFromCache($key, $default = null)
     {
         if (isset($this->localCache[$key])) {
-            logDump('getting from local cache');
             return $this->localCache[$key];
         } elseif ($this->cacheRepository->has($this->prepareExternalCacheKey($key))) {
-            logDump('getting from external cache');
             return $this->cacheRepository->get($this->prepareExternalCacheKey($key));
         } else {
             return $default;
