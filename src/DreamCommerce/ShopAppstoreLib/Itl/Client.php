@@ -8,6 +8,7 @@ use DreamCommerce\ShopAppstoreLib\Resource;
 use DreamCommerce\ShopAppstoreLib\Resource\ProductStock;
 use DreamCommerce\ShopAppstoreLib\ResourceList;
 use Itl\Utils\Misc\BC;
+use Psr\SimpleCache\CacheInterface;
 
 /**
  * Class Client
@@ -48,9 +49,9 @@ class Client
     protected $productsCache;
 
     protected $stocksNamesCache;
-    
+
     /**
-     * @var \Illuminate\Cache\Repository
+     * @var CacheInterface
      */
     protected $cacheRepository;
 
@@ -471,7 +472,7 @@ class Client
     {
         $this->localCache[$key] = $value;
         if ($this->cacheRepository) {
-            $this->cacheRepository->put($this->prepareExternalCacheKey($key), $value, $ttl);
+            $this->cacheRepository->set($this->prepareExternalCacheKey($key), $value, $ttl);
         }
         return $value;
     }
