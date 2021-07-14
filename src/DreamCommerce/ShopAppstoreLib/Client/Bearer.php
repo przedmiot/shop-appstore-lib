@@ -9,8 +9,8 @@ use DreamCommerce\ShopAppstoreLib\Http;
 use DreamCommerce\ShopAppstoreLib\HttpInterface;
 use DreamCommerce\ShopAppstoreLib\Logger;
 use DreamCommerce\ShopAppstoreLib\Resource;
-use Itl\ShoperAppStoreFoundation\Misc\ShopValve;
-use Itl\ShoperAppStoreFoundation\Misc\ShopValveAware;
+use DreamCommerce\ShopAppstoreLib\Itl\ShopValve;
+use DreamCommerce\ShopAppstoreLib\Itl\ShopValveAware;
 use Psr\Log\LoggerInterface;
 
 /**

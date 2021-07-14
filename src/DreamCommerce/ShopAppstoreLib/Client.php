@@ -3,7 +3,7 @@
 namespace DreamCommerce\ShopAppstoreLib;
 
 use DreamCommerce\ShopAppstoreLib\Client\Exception\Exception;
-use Itl\ShoperAppStoreFoundation\Misc\ShopValve;
+use DreamCommerce\ShopAppstoreLib\Itl\ShopValve;
 
 /**
  * DreamCommerce requesting library

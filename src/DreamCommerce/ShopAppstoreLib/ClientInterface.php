@@ -2,7 +2,7 @@
 
 namespace DreamCommerce\ShopAppstoreLib;
 
-use Itl\ShoperAppStoreFoundation\Misc\ShopValve;
+use DreamCommerce\ShopAppstoreLib\Itl\ShopValve;
 use Psr\Log\LoggerInterface;
 
 /**
