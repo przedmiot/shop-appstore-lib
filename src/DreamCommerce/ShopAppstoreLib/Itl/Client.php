@@ -61,7 +61,7 @@ class Client
 
     public function __construct(
         ClientInterface $clientAdapter,
-        string $queriesLogRootDir = null,
+        $queriesLogRootDir = null,
         \Psr\Log\LoggerInterface $psr3Logger = null
     )
     {
@@ -262,16 +262,20 @@ class Client
         }
     }
 
-    public function getOptionName($optionId, $lang)
+    public function getOptionName($optionId, $lang = null)
     {
+        $lang = $lang ?: $this->locale;
+        
         if (!@$this->optionNamesCache[$lang][$optionId]) {
             throw new \Exception('Method self::loadOptionNamesAndOptionValueNames() should be called before!');
         }
         return $this->optionNamesCache[$lang][$optionId];
     }
 
-    public function getOptionValueName($ovalueId, $lang)
+    public function getOptionValueName($ovalueId, $lang = null)
     {
+        $lang = $lang ?: $this->locale;
+
         if (!@$this->optionValuesNamesCache[$lang][$ovalueId]) {
             throw new \Exception('Method self::loadOptionNamesAndOptionValueNames() should be called before!');
         }
