@@ -8,6 +8,7 @@ use DreamCommerce\ShopAppstoreLib\Resource;
 use DreamCommerce\ShopAppstoreLib\Resource\ProductStock;
 use DreamCommerce\ShopAppstoreLib\ResourceList;
 use Itl\Utils\Misc\BC;
+use Psr\SimpleCache\CacheInterface;
 
 /**
  * Class Client
@@ -48,9 +49,9 @@ class Client
     protected $productsCache;
 
     protected $stocksNamesCache;
-    
+
     /**
-     * @var \Illuminate\Cache\Repository
+     * @var CacheInterface
      */
     protected $cacheRepository;
 
@@ -60,7 +61,7 @@ class Client
 
     public function __construct(
         ClientInterface $clientAdapter,
-        string $queriesLogRootDir = null,
+        $queriesLogRootDir = null,
         \Psr\Log\LoggerInterface $psr3Logger = null
     )
     {
@@ -261,16 +262,20 @@ class Client
         }
     }
 
-    public function getOptionName($optionId, $lang)
+    public function getOptionName($optionId, $lang = null)
     {
+        $lang = $lang ?: $this->locale;
+        
         if (!@$this->optionNamesCache[$lang][$optionId]) {
             throw new \Exception('Method self::loadOptionNamesAndOptionValueNames() should be called before!');
         }
         return $this->optionNamesCache[$lang][$optionId];
     }
 
-    public function getOptionValueName($ovalueId, $lang)
+    public function getOptionValueName($ovalueId, $lang = null)
     {
+        $lang = $lang ?: $this->locale;
+
         if (!@$this->optionValuesNamesCache[$lang][$ovalueId]) {
             throw new \Exception('Method self::loadOptionNamesAndOptionValueNames() should be called before!');
         }
@@ -471,7 +476,7 @@ class Client
     {
         $this->localCache[$key] = $value;
         if ($this->cacheRepository) {
-            $this->cacheRepository->put($this->prepareExternalCacheKey($key), $value, $ttl);
+            $this->cacheRepository->set($this->prepareExternalCacheKey($key), $value, $ttl);
         }
         return $value;
     }
